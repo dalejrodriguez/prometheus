@@ -351,7 +351,7 @@ spec:
     spec:
       containers:
       - name: alertmanager
-        image: quay.io/prometheus/alertmanager:v0.7.1
+        image: quay.io/prometheus/alertmanager:latest
         args:
           - '-config.file=/etc/alertmanager/config.yml'
           - '-storage.path=/alertmanager'
@@ -412,7 +412,7 @@ spec:
         component: core
     spec:
       containers:
-      - image: grafana/grafana:4.2.0
+      - image: grafana/grafana:latest
         name: grafana-core
         imagePullPolicy: IfNotPresent
         # env:
@@ -2545,6 +2545,47 @@ data:
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+            
+      - job_name: 'kubernetes-apiservers'
+
+        kubernetes_sd_configs:
+        - role: endpoints
+        scheme: https
+
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+          action: keep
+          regex: default;kubernetes;https
+          
+        - job_name: kubernetes-nodes-kubelet
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        insecure_skip_verify: true
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token      
+      
+        - job_name: kubernetes-nodes-cadvisor
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __metrics_path__
+        replacement: /metrics/cadvisor
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        insecure_skip_verify: true
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token  
 
 kind: ConfigMap
 metadata:
@@ -2572,7 +2613,7 @@ spec:
       serviceAccountName: prometheus-k8s
       containers:
       - name: prometheus
-        image: prom/prometheus:v1.7.0
+        image: prom/prometheus:latest
         args:
           - '-storage.local.retention=12h'
           - '-storage.local.memory-chunks=500000'
@@ -2600,7 +2641,7 @@ spec:
       - name: rules-volume
         configMap:
           name: prometheus-rules
----
+
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -2616,7 +2657,7 @@ spec:
       serviceAccountName: kube-state-metrics
       containers:
       - name: kube-state-metrics
-        image: gcr.io/google_containers/kube-state-metrics:v0.5.0
+        image: gcr.io/google_containers/kube-state-metrics:latest
         ports:
         - containerPort: 8080
 ---
@@ -2768,7 +2809,7 @@ spec:
         component: node-exporter
     spec:
       containers:
-      - image: prom/node-exporter:v0.14.0
+      - image: prom/node-exporter:latest
         name: prometheus-node-exporter
         ports:
         - name: prom-node-exp
